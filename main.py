@@ -34,9 +34,6 @@ async def login(correo: str, contra: str, db: Session = Depends(get_db)):
 
     if not usuario:
         return {"msg": "Usuario no encontrado"}
-
-    if usuario.password_hash != contra:
-        return {"msg": "Contraseña incorrecta"}
     
     #Creacion de token
     hora_actual = time.time_ns()
@@ -54,6 +51,8 @@ async def login(correo: str, contra: str, db: Session = Depends(get_db)):
     db.add(db_acceso) #Guarda el acceso en db
     db.commit()
     db.refresh(db_acceso)
+
+    db.refresh(usuario)
 
     return {
         "msg": "Login exitoso",
