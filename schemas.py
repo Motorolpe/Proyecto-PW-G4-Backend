@@ -1,0 +1,14 @@
+from pydantic import BaseModel
+
+class EgresoType(BaseModel):
+    id: str | None = None
+    amount : float
+    expense_date : str
+    description : str | None = None
+    is_recurring : bool | None = False
+    created_at : str
+    updated_at : str
+    user_id : str
+    category_id : str
+    class Config:
+        from_attributes = True

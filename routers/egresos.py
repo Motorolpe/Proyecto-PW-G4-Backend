@@ -5,6 +5,7 @@ from uuid import UUID
 
 from database import get_db
 from models import Expense
+from schemas import EgresoType
 
 router = APIRouter(prefix="/egresos", tags=["Egresos"])
 
@@ -61,4 +62,26 @@ def grafico_mensual(usuario_id: UUID, db: Session = Depends(get_db)):
     return {
         "msg": "Totales por mes",
         "data": data
+    }
+
+@router.post("/crear")
+def crear_egreso(egreso: EgresoType, db: Session = Depends(get_db)):
+    nuevo_egreso = Expense(
+        amount = egreso.amount,
+        expense_date = egreso.expense_date,
+        description = egreso.description,
+        is_recurring = egreso.is_recurring,
+        created_at = egreso.created_at,
+        updated_at = egreso.updated_at,
+        user_id = egreso.user_id,
+        category_id = egreso.category_id
+    )
+
+    db.add(nuevo_egreso)
+    db.commit()
+    db.refresh(nuevo_egreso)
+
+    return {
+        "msg": "Egreso creado correctamente",
+        "data": nuevo_egreso
     }
