@@ -9,7 +9,7 @@ from models import User
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
 @router.post("/solicitar-recuperacion")
-def solicitar_recuperacion(email: str, db: Session = Depends(get_db)):
+async def solicitar_recuperacion(email: str, db: Session = Depends(get_db)):
     usuario = db.query(User).filter(User.email == email).first()
 
     if not usuario:
@@ -28,7 +28,7 @@ def solicitar_recuperacion(email: str, db: Session = Depends(get_db)):
     }
 
 @router.put("/cambiar-password")
-def cambiar_password(email: str, token: str, nueva_password: str, db: Session = Depends(get_db)):
+async def cambiar_password(email: str, token: str, nueva_password: str, db: Session = Depends(get_db)):
     usuario = db.query(User).filter(User.email == email).first()
 
     if not usuario:

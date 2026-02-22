@@ -10,7 +10,7 @@ from schemas import EgresoType
 router = APIRouter(prefix="/egresos", tags=["Egresos"])
 
 @router.get("/usuario/{usuario_id}")
-def listar_egresos(usuario_id: UUID, db: Session = Depends(get_db)):
+async def listar_egresos(usuario_id: UUID, db: Session = Depends(get_db)):
 
     lista = db.query(Expense).filter(
         Expense.user_id == usuario_id).order_by(
@@ -22,7 +22,7 @@ def listar_egresos(usuario_id: UUID, db: Session = Depends(get_db)):
     }
 
 @router.get("/grafico/categoria/{usuario_id}")
-def grafico_por_categoria(usuario_id: UUID, db: Session = Depends(get_db)):
+async def grafico_por_categoria(usuario_id: UUID, db: Session = Depends(get_db)):
 
     resultados = db.query(Expense.category_id, func.sum(Expense.amount).label("total")
     ).filter(
@@ -43,7 +43,7 @@ def grafico_por_categoria(usuario_id: UUID, db: Session = Depends(get_db)):
     }
 
 @router.get("/grafico/mensual/{usuario_id}")
-def grafico_mensual(usuario_id: UUID, db: Session = Depends(get_db)):
+async def grafico_mensual(usuario_id: UUID, db: Session = Depends(get_db)):
 
     resultados = db.query(extract("month", Expense.expense_date).label("mes"),
         func.sum(Expense.amount).label("total")
@@ -65,7 +65,7 @@ def grafico_mensual(usuario_id: UUID, db: Session = Depends(get_db)):
     }
 
 @router.post("/crear")
-def crear_egreso(egreso: EgresoType, db: Session = Depends(get_db)):
+async def crear_egreso(egreso: EgresoType, db: Session = Depends(get_db)):
     nuevo_egreso = Expense(
         amount = egreso.amount,
         expense_date = egreso.expense_date,
