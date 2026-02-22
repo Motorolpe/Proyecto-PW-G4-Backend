@@ -4,11 +4,12 @@ from datetime import datetime, timedelta
 import uuid
 
 from database import get_db
-from models import User   
+from models import User
+from security import verify_token
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
-@router.post("/solicitar-recuperacion")
+@router.post("/solicitar-recuperacion", dependencies=[Depends(verify_token)])
 async def solicitar_recuperacion(email: str, db: Session = Depends(get_db)):
     usuario = db.query(User).filter(User.email == email).first()
 
@@ -27,7 +28,7 @@ async def solicitar_recuperacion(email: str, db: Session = Depends(get_db)):
         "recovery_token": token 
     }
 
-@router.put("/cambiar-password")
+@router.put("/cambiar-password", dependencies=[Depends(verify_token)])
 async def cambiar_password(email: str, token: str, nueva_password: str, db: Session = Depends(get_db)):
     usuario = db.query(User).filter(User.email == email).first()
 
