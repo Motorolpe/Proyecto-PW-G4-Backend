@@ -2,6 +2,7 @@ import time
 import datetime
 import bcrypt
 from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from routers import usuario, egresos
 
@@ -9,6 +10,17 @@ from database import get_db
 from models import User, Access_log
 
 app = FastAPI()
+
+origins = (
+    "*"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_origins=origins
+)
 
 app.include_router(usuario.router)
 app.include_router(egresos.router)
