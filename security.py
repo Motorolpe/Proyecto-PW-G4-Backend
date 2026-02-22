@@ -17,7 +17,7 @@ async def verify_token(x_token : str = Header(...), db: Session = Depends(get_db
         )
 
     db_query.update({
-        "ultimo_login": datetime.datetime.now()
+        "last_login": datetime.datetime.now()
     })
     db.commit()
     db.refresh(db_acceso)

@@ -30,14 +30,13 @@ async def grafico_por_categoria(usuario_id: UUID, db: Session = Depends(get_db))
         Expense.user_id == usuario_id
     ).group_by(Expense.category_id).all()
 
-    data = [
-        {
+    data = []
+    for r in resultados:
+        data.append({
             "category_id": r.category_id,
             "total": float(r.total)
-        }
-        for r in resultados
-    ]
-
+        })
+        
     return {
         "msg": "Totales por categoria",
         "data": data
@@ -52,13 +51,12 @@ async def grafico_mensual(usuario_id: UUID, db: Session = Depends(get_db)):
         Expense.user_id == usuario_id
     ).group_by("mes").order_by("mes").all()
 
-    data = [
-        {
+    data = []
+    for r in resultados:
+        data.append({
             "mes": int(r.mes),
             "total": float(r.total)
-        }
-        for r in resultados
-    ]
+        })
 
     return {
         "msg": "Totales por mes",
