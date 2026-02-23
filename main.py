@@ -30,6 +30,9 @@ class LoginRequest(BaseModel):
     username: str 
     password: str 
 
+class LogoutRequest(BaseModel):
+    token: str
+
 @app.post("/login")
 async def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     usuario = db.query(User).filter(
@@ -66,8 +69,8 @@ async def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     }
 
 @app.delete("/logout")
-async def logout(token_accesso: str, db : Session = Depends(get_db)):
-    db_accesos = db.query(Access_log).filter(Access_log.id == token_accesso).first() 
+async def logout(logout_request: LogoutRequest, db : Session = Depends(get_db)):
+    db_accesos = db.query(Access_log).filter(Access_log.id == logout_request.token).first() 
     if not db_accesos:
         return {
             "msg" : "Token no existe"
