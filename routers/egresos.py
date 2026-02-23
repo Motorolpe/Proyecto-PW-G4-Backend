@@ -4,7 +4,7 @@ from sqlalchemy import func, extract
 from uuid import UUID
 
 from database import get_db
-from models import Expense
+from models import Category, Expense
 from schemas import EgresoType
 from security import verify_token
 
@@ -35,9 +35,23 @@ async def crear_egreso(egreso: EgresoType, db: Session = Depends(get_db)):
 @router.get("/usuario/{usuario_id}", dependencies=[Depends(verify_token)])
 async def listar_egresos(usuario_id: UUID, db: Session = Depends(get_db)):
 
-    lista = db.query(Expense).filter(
-        Expense.user_id == usuario_id).order_by(
-        Expense.expense_date.desc()).all()
+    resultados_db = db.query(Expense, Category).join(Category, Expense.category_id == Category.id
+    ).filter(
+        Expense.user_id == usuario_id
+    ).order_by(
+        Expense.expense_date.desc()
+    ).all()
+
+    lista = []
+
+    for expense, category in resultados_db:
+        lista.append({
+            "id": expense.id,
+            "description": expense.description,
+            "amount": expense.amount,
+            "expense_date": expense.expense_date,
+            "category": category.name  
+        })
 
     return {
         "msg": "Listado de egresos",
