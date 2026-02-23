@@ -64,3 +64,17 @@ async def login(login_request: LoginRequest, db: Session = Depends(get_db)):
         "data": usuario,
         "token": db_acceso.id
     }
+
+@app.delete("/logout")
+async def logout(token_accesso: str, db : Session = Depends(get_db)):
+    db_accesos = db.query(Access_log).filter(Access_log.id == token_accesso).first() 
+    if not db_accesos:
+        return {
+            "msg" : "Token no existe"
+        }
+    
+    db.delete(db_accesos)
+    db.commit()
+    return {
+        "msg" : "Logout exitoso"
+    }
