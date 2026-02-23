@@ -75,6 +75,18 @@ class ExpenseUpdate(BaseModel):
     category_id: Optional[UUID] = None
 
 
+# Egreso payload usado en routers/egresos.py
+class EgresoType(BaseModel):
+    amount: float
+    expense_date: datetime
+    description: Optional[str] = None
+    is_recurring: bool = False
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    user_id: UUID
+    category_id: UUID
+
+
 class ExpenseResponse(ExpenseBase):
     id: UUID
     user_id: UUID

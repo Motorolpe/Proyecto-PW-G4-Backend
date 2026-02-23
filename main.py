@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import Base, engine
 
-# Importar modelos para que SQLAlchemy los reconozca
 import models
 
 # Crear tablas (si no existen)
@@ -21,7 +20,7 @@ app = FastAPI(
 # Configurar CORS para permitir solicitudes del frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Cambiar en producción a ["http://localhost:5173"] o el origen del frontend
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,22 +35,27 @@ async def root():
         "status": "online",
     }
 
-
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {"status": "healthy", "database": "connected"}
 
-
 # ============== Include Routers ==============
-from routers import auth, users, expenses, budgets, categories
+from routers import usuario, egresos, auth, users, expenses, budgets, categories
 
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+# Prefijos para compatibilidad con el frontend actual
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(expenses.router, prefix="/api/v1/expenses", tags=["Expenses"])
 app.include_router(budgets.router, prefix="/api/v1/budgets", tags=["Budgets"])
 app.include_router(categories.router, prefix="/api/v1/categories", tags=["Categories"])
+app.include_router(usuario.router, prefix="/api/v1", tags=["Usuarios"])
+app.include_router(egresos.router, prefix="/api/v1", tags=["Egresos"])
+
+# Rutas de compatibilidad con el branch original (sin prefijo) para no romper llamados legados
+app.include_router(auth.router)
+app.include_router(usuario.router)
+app.include_router(egresos.router)
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
