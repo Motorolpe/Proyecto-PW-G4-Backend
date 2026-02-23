@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import uuid
 from pydantic import BaseModel
+import random
+import string
 
 from database import get_db
 from models import User
@@ -66,7 +68,9 @@ async def cambiar_password(email: str, db: Session = Depends(get_db)):
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     
-    usuario.password_hash = "nueva_contraseña"
+    random_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+    
+    usuario.password_hash = random_password
     usuario.updated_at = datetime.utcnow()
     db.commit()
 
