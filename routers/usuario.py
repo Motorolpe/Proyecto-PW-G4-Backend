@@ -58,3 +58,18 @@ async def cambiar_password(email: str, token: str, nueva_password: str, db: Sess
     return {
         "msg": "Contraseña actualizada correctamente"
     }
+
+@router.put("/cambiar-password-autorizado", dependencies=[Depends(verify_token)])
+async def cambiar_password(email: str, db: Session = Depends(get_db)):
+    usuario = db.query(User).filter(User.email == email).first()
+
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    usuario.password_hash = "nueva_contraseña"
+    usuario.updated_at = datetime.utcnow()
+    db.commit()
+
+    return {
+        "msg": "Contraseña actualizada correctamente"
+    }
