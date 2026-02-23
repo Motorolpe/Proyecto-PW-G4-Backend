@@ -5,7 +5,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from routers import usuario, egresos
+from routers import usuario, egresos, categorias
 
 from database import get_db
 from models import User, Access_log
@@ -25,6 +25,7 @@ app.add_middleware(
 
 app.include_router(usuario.router)
 app.include_router(egresos.router)
+app.include_router(categorias.router)
 
 class LoginRequest(BaseModel):
     username: str 
