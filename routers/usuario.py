@@ -61,7 +61,7 @@ async def cambiar_password(email: str, token: str, nueva_password: str, db: Sess
         "msg": "Contraseña actualizada correctamente"
     }
 
-@router.put("/cambiar-password-autorizado", dependencies=[Depends(verify_token)])
+@router.put("/cambiar-password-autorizado/{email}", dependencies=[Depends(verify_token)])
 async def cambiar_password(email: str, db: Session = Depends(get_db)):
     usuario = db.query(User).filter(User.email == email).first()
 
