@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, extract
 from uuid import UUID
 
@@ -9,6 +9,28 @@ from schemas import EgresoType
 from security import verify_token
 
 router = APIRouter(prefix="/egresos", tags=["Egresos"])
+
+@router.post("/crear", dependencies=[Depends(verify_token)])
+async def crear_egreso(egreso: EgresoType, db: Session = Depends(get_db)):
+    nuevo_egreso = Expense(
+        amount = egreso.amount,
+        expense_date = egreso.expense_date,
+        description = egreso.description,
+        is_recurring = egreso.is_recurring,
+        created_at = egreso.created_at,
+        updated_at = egreso.updated_at,
+        user_id = egreso.user_id,
+        category_id = egreso.category_id
+    )
+
+    db.add(nuevo_egreso)
+    db.commit()
+    db.refresh(nuevo_egreso)
+
+    return {
+        "msg": "Egreso creado correctamente",
+        "data": nuevo_egreso
+    }
 
 @router.get("/usuario/{usuario_id}", dependencies=[Depends(verify_token)])
 async def listar_egresos(usuario_id: UUID, db: Session = Depends(get_db)):
@@ -63,24 +85,64 @@ async def grafico_mensual(usuario_id: UUID, db: Session = Depends(get_db)):
         "data": data
     }
 
-@router.post("/crear", dependencies=[Depends(verify_token)])
-async def crear_egreso(egreso: EgresoType, db: Session = Depends(get_db)):
-    nuevo_egreso = Expense(
-        amount = egreso.amount,
-        expense_date = egreso.expense_date,
-        description = egreso.description,
-        is_recurring = egreso.is_recurring,
-        created_at = egreso.created_at,
-        updated_at = egreso.updated_at,
-        user_id = egreso.user_id,
-        category_id = egreso.category_id
-    )
+@router.get("/{user_id}/atipicos", dependencies=[Depends(verify_token)])
+def obtener_gastos_atipicos(user_id: str, db: Session = Depends(get_db)):
+    gastos = db.query(Expense).options(
+        joinedload(Expense.categories)).filter(
+        Expense.user_id == user_id).all()
 
-    db.add(nuevo_egreso)
-    db.commit()
-    db.refresh(nuevo_egreso)
+    total_gastos = len(gastos)
+    
+    #Que haya un minimo de gastos por analizar
+    if total_gastos < 6:
+        return {
+            "data": []
+        }
+
+    suma_total = 0
+    for g in gastos:
+        suma_total += g.amount
+
+    promedio_general = suma_total/total_gastos
+
+    resultado = []
+
+    for gasto in gastos:
+        flags = []
+        mensaje = ""
+        es_monto_inusual = False
+        if gasto.amount > promedio_general * 1.5:
+            es_monto_inusual = True
+            flags.append("MONTO_INUSUAL")
+
+        contador_categoria = 0
+        for g in gastos:
+            if g.category_id == gasto.category_id:
+                contador_categoria += 1
+
+        es_categoria_poco_frecuente = False
+        if contador_categoria <= 3:
+            es_categoria_poco_frecuente = True
+            flags.append("CATEGORIA_POCO_FRECUENTE")
+
+        if es_monto_inusual and es_categoria_poco_frecuente:
+            mensaje = "Este gasto es mayor al promedio habitual y pertenece a una categoría que usas con poca frecuencia."
+        elif es_monto_inusual:
+            mensaje = "Este gasto supera significativamente tu promedio habitual."
+        elif es_categoria_poco_frecuente:
+            mensaje = "Esta categoría no es común dentro de tus gastos habituales."
+
+        if len(flags) > 0:
+            resultado.append({
+                "id": gasto.id,
+                "fecha": gasto.expense_date,
+                "descripcion": gasto.description,
+                "categoria": gasto.categories.name,
+                "monto": gasto.amount,
+                "flags": flags,
+                "mensaje" : mensaje
+            })
 
     return {
-        "msg": "Egreso creado correctamente",
-        "data": nuevo_egreso
+        "data": resultado
     }
