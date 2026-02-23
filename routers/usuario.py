@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import uuid
+from pydantic import BaseModel
 
 from database import get_db
 from models import User
@@ -9,9 +10,12 @@ from security import verify_token
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
+class RecuperacionCuenta(BaseModel):
+    email: str
+
 @router.post("/solicitar-recuperacion")
-async def solicitar_recuperacion(email: str, db: Session = Depends(get_db)):
-    usuario = db.query(User).filter(User.email == email).first()
+async def solicitar_recuperacion(request: RecuperacionCuenta, db: Session = Depends(get_db)):
+    usuario = db.query(User).filter(User.email == request.email).first()
 
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
