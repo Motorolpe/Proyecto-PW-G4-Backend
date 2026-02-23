@@ -1,7 +1,8 @@
 import uuid
-from database import Base
-from sqlalchemy import UUID, Column, String, DateTime, ForeignKey, Table, Boolean, Double
+from sqlalchemy import UUID, Column, String, DateTime, ForeignKey, Boolean, Double
 from sqlalchemy.orm import relationship
+from database import Base
+
 
 class User(Base):
     __tablename__ = "user"
@@ -9,7 +10,7 @@ class User(Base):
         UUID(as_uuid=True),
         primary_key=True,
         default=lambda: str(uuid.uuid4()),
-        index=True
+        index=True,
     )
     full_name = Column(String, unique=True)
     email = Column(String, unique=True)
@@ -24,26 +25,31 @@ class User(Base):
     created_at = Column(DateTime)
     updated_at = Column(DateTime)
 
-    access_logs = relationship("Access_log", back_populates="users") #Sin useList --> Relacion 1:N con Access_log
-    alerts = relationship("Alert", back_populates="users") #Sin useList --> Relacion 1:N con Alert
-    expenses = relationship("Expense", back_populates="users") #Sin useList --> Relacion 1:N con Expense
-    budgets = relationship("Budget", back_populates="users") #Sin useList --> Relacion 1:N con Budget
+    access_logs = relationship("Access_log", back_populates="users")  # Relacion 1:N con Access_log
+    alerts = relationship("Alert", back_populates="users")  # Relacion 1:N con Alert
+    expenses = relationship("Expense", back_populates="users")  # Relacion 1:N con Expense
+    budgets = relationship("Budget", back_populates="users")  # Relacion 1:N con Budget
+
 
 class Access_log(Base):
     __tablename__ = "access_log"
     id = Column(
-        String, 
+        UUID(as_uuid=True),
         primary_key=True,
-        index=True
+        default=lambda: str(uuid.uuid4()),
+        index=True,
     )
-    last_login = Column(DateTime)
+    action_type = Column(String)
+    status = Column(String)
+    timestamp = Column(DateTime)
 
     user_id = Column(
-        UUID(as_uuid=True), 
-        ForeignKey("user.id") #Relacion N:1 con User
-        )
-    
-    users = relationship("User", back_populates="access_logs") 
+        UUID(as_uuid=True),
+        ForeignKey("user.id"),  # Relacion N:1 con User
+    )
+
+    users = relationship("User", back_populates="access_logs")
+
 
 class Alert(Base):
     __tablename__ = "alert"
@@ -51,7 +57,7 @@ class Alert(Base):
         UUID(as_uuid=True),
         primary_key=True,
         default=lambda: str(uuid.uuid4()),
-        index=True
+        index=True,
     )
     alert_type = Column(String)
     percentage_reached = Column(Double)
@@ -60,16 +66,19 @@ class Alert(Base):
     created_at = Column(DateTime)
 
     user_id = Column(
-        UUID(as_uuid=True), 
-        ForeignKey("user.id"), unique=True #Relacion N:1 con User
-        )
+        UUID(as_uuid=True),
+        ForeignKey("user.id"),  # Relacion N:1 con User
+        unique=True,
+    )
     budget_id = Column(
-        UUID(as_uuid=True), 
-        ForeignKey("budget.id"), unique=True #Relacion N:1 con Budget
-        )
-    
+        UUID(as_uuid=True),
+        ForeignKey("budget.id"),  # Relacion N:1 con Budget
+        unique=True,
+    )
+
     users = relationship("User", back_populates="alerts")
     budgets = relationship("Budget", back_populates="alerts")
+
 
 class Category(Base):
     __tablename__ = "category"
@@ -77,14 +86,15 @@ class Category(Base):
         UUID(as_uuid=True),
         primary_key=True,
         default=lambda: str(uuid.uuid4()),
-        index=True
+        index=True,
     )
     name = Column(String, unique=True)
     description = Column(String)
     created_at = Column(DateTime)
 
-    expenses = relationship("Expense", back_populates="categories") #Sin useList --> Relacion 1:N con Expense
-    budgets = relationship("Budget", back_populates="categories") #Sin useList --> Relacion 1:N con Budget
+    expenses = relationship("Expense", back_populates="categories")  # Relacion 1:N con Expense
+    budgets = relationship("Budget", back_populates="categories")  # Relacion 1:N con Budget
+
 
 class Expense(Base):
     __tablename__ = "expense"
@@ -92,7 +102,7 @@ class Expense(Base):
         UUID(as_uuid=True),
         primary_key=True,
         default=lambda: str(uuid.uuid4()),
-        index=True
+        index=True,
     )
     amount = Column(Double)
     expense_date = Column(DateTime)
@@ -102,16 +112,17 @@ class Expense(Base):
     updated_at = Column(DateTime)
 
     user_id = Column(
-        UUID(as_uuid=True), 
-        ForeignKey("user.id") #Relacion N:1 con User
-        )
+        UUID(as_uuid=True),
+        ForeignKey("user.id"),  # Relacion N:1 con User
+    )
     category_id = Column(
-        UUID(as_uuid=True), 
-        ForeignKey("category.id") #Relacion N:1 con Category
-        )
-    
+        UUID(as_uuid=True),
+        ForeignKey("category.id"),  # Relacion N:1 con Category
+    )
+
     users = relationship("User", back_populates="expenses")
     categories = relationship("Category", back_populates="expenses")
+
 
 class Budget(Base):
     __tablename__ = "budget"
@@ -119,7 +130,7 @@ class Budget(Base):
         UUID(as_uuid=True),
         primary_key=True,
         default=lambda: str(uuid.uuid4()),
-        index=True
+        index=True,
     )
     amount_limit = Column(Double)
     month = Column(String)
@@ -129,14 +140,14 @@ class Budget(Base):
     updated_at = Column(DateTime)
 
     user_id = Column(
-        UUID(as_uuid=True), 
-        ForeignKey("user.id") #Relacion N:1 con User
-        )
+        UUID(as_uuid=True),
+        ForeignKey("user.id"),  # Relacion N:1 con User
+    )
     category_id = Column(
-        UUID(as_uuid=True), 
-        ForeignKey("category.id") #Relacion N:1 con Category
-        )
-    
+        UUID(as_uuid=True),
+        ForeignKey("category.id"),  # Relacion N:1 con Category
+    )
+
     users = relationship("User", back_populates="budgets")
     categories = relationship("Category", back_populates="budgets")
-    alerts = relationship("Alert", back_populates="budgets")
+    alerts = relationship("Alert", back_populates="budgets")  # Relacion 1:N con Alert

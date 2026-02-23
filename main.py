@@ -1,66 +1,57 @@
-import time
-import datetime
-import bcrypt
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
-from routers import usuario, egresos
+from database import Base, engine
 
-from database import get_db
-from models import User, Access_log
+# Importar modelos para que SQLAlchemy los reconozca
+import models
 
-app = FastAPI()
+# Crear tablas (si no existen)
+Base.metadata.create_all(bind=engine)
 
-origins = (
-    "*"
+# Inicializar aplicación FastAPI
+app = FastAPI(
+    title="Proyecto PW G4 - Sistema de Gestión de Gastos",
+    description="API Backend para gestión de gastos y presupuestos",
+    version="1.0.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
 )
 
+# Configurar CORS para permitir solicitudes del frontend
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=["*"],  # Cambiar en producción a ["http://localhost:5173"] o el origen del frontend
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    allow_origins=origins
 )
 
-app.include_router(usuario.router)
-app.include_router(egresos.router)
-
-class LoginRequest(BaseModel):
-    username: str 
-    password: str 
-
-@app.post("/login")
-async def login(login_request: LoginRequest, db: Session = Depends(get_db)):
-    usuario = db.query(User).filter(
-        User.email == login_request.username,
-        User.password_hash == login_request.password
-        ).first()
-
-    if not usuario:
-        return {"msg": "Usuario no encontrado"}
-    
-    #Creacion de token
-    hora_actual = time.time_ns()
-    cadena_a_encriptar = f"{login_request.username}-{str(hora_actual)}" 
-    cadena_hasheada = bcrypt.hashpw(
-        cadena_a_encriptar.encode("utf-8"), 
-        bcrypt.gensalt()
-        )
-    
-    db_acceso = Access_log(
-        id = cadena_hasheada.decode("utf-8"), #Convierte bytes a string
-        last_login = datetime.datetime.now(),
-        user_id = usuario.id
-    )
-    db.add(db_acceso) #Guarda el acceso en db
-    db.commit()
-    db.refresh(db_acceso)
-
-    db.refresh(usuario)
-
+# ============== Health Check Routes ==============
+@app.get("/", tags=["Health"])
+async def root():
     return {
-        "msg": "Login exitoso",
-        "data": usuario,
-        "token": db_acceso.id
+        "message": "API Proyecto PW G4 - Sistema de Gestión de Gastos",
+        "version": "1.0.0",
+        "status": "online",
     }
+
+
+@app.get("/health", tags=["Health"])
+async def health_check():
+    return {"status": "healthy", "database": "connected"}
+
+
+# ============== Include Routers ==============
+from routers import auth, users, expenses, budgets, categories
+
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
+app.include_router(expenses.router, prefix="/api/v1/expenses", tags=["Expenses"])
+app.include_router(budgets.router, prefix="/api/v1/budgets", tags=["Budgets"])
+app.include_router(categories.router, prefix="/api/v1/categories", tags=["Categories"])
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
