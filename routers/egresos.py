@@ -84,3 +84,27 @@ async def crear_egreso(egreso: EgresoType, db: Session = Depends(get_db)):
         "msg": "Egreso creado correctamente",
         "data": nuevo_egreso
     }
+
+@router.put("/editar/{egreso_id}", dependencies=[Depends(verify_token)])
+async def editar_egreso(egreso_id: UUID, egreso: EgresoType, db: Session = Depends(get_db)):
+    egreso_db = db.query(Expense).filter(Expense.id == egreso_id).first()
+
+    if not egreso_db:
+        return {
+            "msg": "Egreso no encontrado"
+        }
+
+    egreso_db.amount = egreso.amount
+    egreso_db.expense_date = egreso.expense_date
+    egreso_db.description = egreso.description
+    egreso_db.is_recurring = egreso.is_recurring
+    egreso_db.updated_at = egreso.updated_at
+    egreso_db.category_id = egreso.category_id
+
+    db.commit()
+    db.refresh(egreso_db)
+
+    return {
+        "msg": "Egreso editado correctamente",
+        "data": egreso_db
+    }
