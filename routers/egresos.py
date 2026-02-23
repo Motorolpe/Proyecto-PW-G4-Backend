@@ -36,11 +36,8 @@ async def crear_egreso(egreso: EgresoType, db: Session = Depends(get_db)):
 async def listar_egresos(usuario_id: UUID, db: Session = Depends(get_db)):
 
     resultados_db = db.query(Expense, Category).join(Category, Expense.category_id == Category.id
-    ).filter(
-        Expense.user_id == usuario_id
-    ).order_by(
-        Expense.expense_date.desc()
-    ).all()
+                    ).filter(Expense.user_id == usuario_id
+                    ).order_by(Expense.expense_date.desc()).all()
 
     lista = []
 
@@ -61,15 +58,15 @@ async def listar_egresos(usuario_id: UUID, db: Session = Depends(get_db)):
 @router.get("/grafico/categoria/{usuario_id}", dependencies=[Depends(verify_token)])
 async def grafico_por_categoria(usuario_id: UUID, db: Session = Depends(get_db)):
 
-    resultados = db.query(Expense.category_id, func.sum(Expense.amount).label("total")
-    ).filter(
-        Expense.user_id == usuario_id
-    ).group_by(Expense.category_id).all()
+    resultados_db = db.query(Category.name,func.sum(Expense.amount).label("total")
+                    ).join(Category, Expense.category_id == Category.id
+                    ).filter(Expense.user_id == usuario_id
+                    ).group_by(Category.name).all()
 
     data = []
-    for r in resultados:
+    for r in resultados_db:
         data.append({
-            "category_id": r.category_id,
+            "category_name": r.name,
             "total": float(r.total)
         })
         
@@ -81,14 +78,13 @@ async def grafico_por_categoria(usuario_id: UUID, db: Session = Depends(get_db))
 @router.get("/grafico/mensual/{usuario_id}", dependencies=[Depends(verify_token)])
 async def grafico_mensual(usuario_id: UUID, db: Session = Depends(get_db)):
 
-    resultados = db.query(extract("month", Expense.expense_date).label("mes"),
-        func.sum(Expense.amount).label("total")
-    ).filter(
-        Expense.user_id == usuario_id
-    ).group_by("mes").order_by("mes").all()
+    resultados_db = db.query(extract("month", Expense.expense_date).label("mes"), func.sum(Expense.amount).label("total")
+                    ).filter(Expense.user_id == usuario_id
+                    ).group_by("mes"
+                    ).order_by("mes").all()
 
     data = []
-    for r in resultados:
+    for r in resultados_db:
         data.append({
             "mes": int(r.mes),
             "total": float(r.total)
@@ -102,8 +98,8 @@ async def grafico_mensual(usuario_id: UUID, db: Session = Depends(get_db)):
 @router.get("/{user_id}/atipicos", dependencies=[Depends(verify_token)])
 def obtener_gastos_atipicos(user_id: str, db: Session = Depends(get_db)):
     gastos = db.query(Expense).options(
-        joinedload(Expense.categories)).filter(
-        Expense.user_id == user_id).all()
+            joinedload(Expense.categories)).filter(
+            Expense.user_id == user_id).all()
 
     total_gastos = len(gastos)
     
