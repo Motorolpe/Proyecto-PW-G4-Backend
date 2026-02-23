@@ -3,6 +3,7 @@ import datetime
 import bcrypt
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from routers import usuario, egresos
 
@@ -25,11 +26,15 @@ app.add_middleware(
 app.include_router(usuario.router)
 app.include_router(egresos.router)
 
+class LoginRequest(BaseModel):
+    username: str 
+    password: str 
+
 @app.post("/login")
-async def login(correo: str, contra: str, db: Session = Depends(get_db)):
+async def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     usuario = db.query(User).filter(
-        User.email == correo,
-        User.password_hash == contra
+        User.email == login_request.username,
+        User.password_hash == login_request.password
         ).first()
 
     if not usuario:
@@ -37,7 +42,7 @@ async def login(correo: str, contra: str, db: Session = Depends(get_db)):
     
     #Creacion de token
     hora_actual = time.time_ns()
-    cadena_a_encriptar = f"{correo}-{str(hora_actual)}" 
+    cadena_a_encriptar = f"{login_request.username}-{str(hora_actual)}" 
     cadena_hasheada = bcrypt.hashpw(
         cadena_a_encriptar.encode("utf-8"), 
         bcrypt.gensalt()
