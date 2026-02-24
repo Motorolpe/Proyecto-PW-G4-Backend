@@ -6,6 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from routers import usuario, egresos, categorias
+from routers import budgets
+
+
 
 from database import get_db
 from models import User, Access_log
@@ -86,3 +89,5 @@ async def logout(logout_request: LogoutRequest, db : Session = Depends(get_db)):
     return {
         "msg" : "Logout exitoso"
     }
+
+app.include_router(budgets.router)

@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from uuid import UUID
 
 class EgresoType(BaseModel):
     id: str | None = None
@@ -22,3 +23,10 @@ class UserListSchema(BaseModel):
 
     class Config:
         from_attributes = True
+
+class BudgetCreate(BaseModel):
+    amount_limit: float
+    month: str
+    year: str
+    alert_treshold: float
+    category_id: UUID
