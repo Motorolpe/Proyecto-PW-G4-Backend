@@ -43,6 +43,11 @@ class CambiarPasswordRequest(BaseModel):
     token: str
     nueva_password: str
 
+class CambiarPasswordAutorizadoRequest(BaseModel):
+    email: str
+    old_password: str
+    new_password: str
+
 @router.put("/cambiar-password")
 async def cambiar_password(data: CambiarPasswordRequest, db: Session = Depends(get_db)):
     usuario = db.query(User).filter(User.recovery_token == data.token).first()
@@ -65,8 +70,26 @@ async def cambiar_password(data: CambiarPasswordRequest, db: Session = Depends(g
         "msg": "Contraseña actualizada correctamente"
     }
 
+@router.put("/cambiar-password-autorizado", dependencies=[Depends(verify_token)])
+async def cambiar_password_autorizado(request: CambiarPasswordAutorizadoRequest, db: Session = Depends(get_db)):
+    usuario = db.query(User).filter(
+        User.email == request.email,
+        User.password_hash == request.old_password
+        ).first()
+    
+    if not usuario:
+        raise HTTPException(status_code=400, detail="Credenciales inválidas")
+    
+    usuario.password_hash = request.new_password
+    usuario.updated_at = datetime.utcnow()
+    db.commit()
+
+    return {
+        "msg": "Contraseña actualizada correctamente"
+    }
+
 @router.put("/cambiar-password-autorizado/{email}", dependencies=[Depends(verify_token)])
-async def cambiar_password(email: str, db: Session = Depends(get_db)):
+async def cambiar_password_olvido(email: str, db: Session = Depends(get_db)):
     usuario = db.query(User).filter(User.email == email).first()
 
     if not usuario:
