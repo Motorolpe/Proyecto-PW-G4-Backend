@@ -9,6 +9,7 @@ import secrets
 from database import get_db
 from models import User
 from security import verify_token
+from enviarCorreo.email import enviar_correo_recuperacion
 
 from schemas import UserListSchema
 from typing import List
@@ -26,6 +27,7 @@ async def solicitar_recuperacion(request: RecuperacionCuenta, db: Session = Depe
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
     token = str(uuid.uuid4())
+    enviar_correo_recuperacion(usuario.email, token)
 
     usuario.recovery_token = token
     usuario.recovery_token_expires = datetime.utcnow() + timedelta(minutes=15)
@@ -37,22 +39,21 @@ async def solicitar_recuperacion(request: RecuperacionCuenta, db: Session = Depe
         "recovery_token": token 
     }
 
+class CambiarPasswordRequest(BaseModel):
+    token: str
+    nueva_password: str
+
 @router.put("/cambiar-password")
-async def cambiar_password(email: str, token: str, nueva_password: str, db: Session = Depends(get_db)):
-    usuario = db.query(User).filter(User.email == email).first()
+async def cambiar_password(data: CambiarPasswordRequest, db: Session = Depends(get_db)):
+    usuario = db.query(User).filter(User.recovery_token == data.token).first()
 
     if not usuario:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-
-    # Validar token
-    if usuario.recovery_token != token:
         raise HTTPException(status_code=400, detail="Token inválido")
 
-    # Validar expiración
     if usuario.recovery_token_expires < datetime.utcnow():
         raise HTTPException(status_code=400, detail="Token expirado")
 
-    usuario.password_hash = nueva_password
+    usuario.password_hash = data.nueva_password
 
     usuario.recovery_token = None
     usuario.recovery_token_expires = None
