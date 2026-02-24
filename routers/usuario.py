@@ -110,4 +110,14 @@ async def cambiar_password_olvido(email: str, db: Session = Depends(get_db)):
 @router.get("/")
 def listar_usuarios(db: Session = Depends(get_db)):
     usuarios = db.query(User).all()
-    return usuarios
+    return [
+        {
+            "id": u.id,
+            "full_name": u.full_name,
+            "email": u.email,
+            "role": u.role,
+            "is_active": u.is_active,
+            "created_at": u.created_at
+        }
+        for u in usuarios
+    ]
