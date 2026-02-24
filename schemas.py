@@ -12,3 +12,13 @@ class EgresoType(BaseModel):
     category_id : str
     class Config:
         from_attributes = True
+
+class UserListSchema(BaseModel):
+    id: str
+    full_name: str
+    email: str
+    role: str
+    is_active: bool
+
+    class Config:
+        from_attributes = True

@@ -10,6 +10,9 @@ from database import get_db
 from models import User
 from security import verify_token
 
+from schemas import UserListSchema
+from typing import List
+
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
 class RecuperacionCuenta(BaseModel):
@@ -77,3 +80,9 @@ async def cambiar_password(email: str, db: Session = Depends(get_db)):
     return {
         "msg": "Contraseña actualizada correctamente"
     }
+
+
+@router.get("/")
+def listar_usuarios(db: Session = Depends(get_db)):
+    usuarios = db.query(User).all()
+    return usuarios

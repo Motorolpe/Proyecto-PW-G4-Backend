@@ -10,7 +10,11 @@ from routers import usuario, egresos, categorias
 from database import get_db
 from models import User, Access_log
 
+
+
 app = FastAPI()
+
+
 
 origins = (
     "*"
