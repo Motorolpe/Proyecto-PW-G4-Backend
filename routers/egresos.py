@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, extract
+from datetime import datetime
 from uuid import UUID
 
 from database import get_db
@@ -17,8 +18,8 @@ async def crear_egreso(egreso: EgresoType, db: Session = Depends(get_db)):
         expense_date = egreso.expense_date,
         description = egreso.description,
         is_recurring = egreso.is_recurring,
-        created_at = egreso.created_at,
-        updated_at = egreso.updated_at,
+        created_at = datetime.utcnow(),
+        updated_at = datetime.utcnow(),
         user_id = egreso.user_id,
         category_id = egreso.category_id
     )

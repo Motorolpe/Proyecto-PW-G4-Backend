@@ -6,8 +6,8 @@ class EgresoType(BaseModel):
     expense_date : str
     description : str | None = None
     is_recurring : bool | None = False
-    created_at : str
-    updated_at : str
+    created_at : str | None = None
+    updated_at : str | None = None
     user_id : str
     category_id : str
     class Config:
