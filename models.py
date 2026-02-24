@@ -10,7 +10,9 @@ class User(Base):
         primary_key=True,
         default=lambda: str(uuid.uuid4()),
         index=True
+        
     )
+    role = Column(String, default="user") 
     full_name = Column(String, unique=True)
     email = Column(String, unique=True)
     password_hash = Column(String, unique=True)

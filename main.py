@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from routers import usuario, egresos, categorias
 from routers import budgets
+from routers import admin
 
 
 
@@ -91,3 +92,4 @@ async def logout(logout_request: LogoutRequest, db : Session = Depends(get_db)):
     }
 
 app.include_router(budgets.router)
+app.include_router(admin.router)
