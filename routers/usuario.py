@@ -56,7 +56,7 @@ async def cambiar_password(data: CambiarPasswordRequest, db: Session = Depends(g
         raise HTTPException(status_code=400, detail="Token inválido")
 
     if usuario.recovery_token_expires < datetime.utcnow():
-        raise HTTPException(status_code=400, detail="Token expirado")
+        raise HTTPException(status_code=400, detail="Tiempo expirado")
 
     usuario.password_hash = data.nueva_password
 
