@@ -9,7 +9,7 @@ import secrets
 from database import get_db
 from models import User
 from security import verify_token
-from enviarCorreo.email import enviar_correo_recuperacion
+from enviarCorreo.email import enviar_correo_recuperacion, enviar_correo_contraseña
 
 from schemas import UserListSchema
 from typing import List
@@ -73,7 +73,8 @@ async def cambiar_password(email: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     
     random_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(10))
-    
+    enviar_correo_contraseña(usuario.email, random_password)
+
     usuario.password_hash = random_password
     usuario.updated_at = datetime.utcnow()
     db.commit()

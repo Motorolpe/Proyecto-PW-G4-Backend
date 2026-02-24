@@ -28,3 +28,19 @@ def enviar_correo_recuperacion(destinatario: str, token: str):
         "subject": "Recuperación de contraseña",
         "html": html_content
     })
+
+def enviar_correo_contraseña(destinatario: str, contra: str):
+    with open("templates/nuevaContra.html", "r", encoding="utf-8") as file:
+        html_content = file.read()
+
+    html_content = html_content.replace(
+        "{{contraseña}}",
+        contra
+    )
+
+    resend.Emails.send({
+        "from": "grupo4PW@resend.dev",
+        "to": destinatario,
+        "subject": "Cambio de contraseña",
+        "html": html_content
+    })    
