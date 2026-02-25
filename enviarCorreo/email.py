@@ -43,4 +43,16 @@ def enviar_correo_contraseña(destinatario: str, contra: str):
         "to": destinatario,
         "subject": "Cambio de contraseña",
         "html": html_content
-    })    
+    }) 
+
+def enviar_correo_confirmacion(destinatario: str):
+    with open("templates/iniciosesion.html", "r", encoding="utf-8") as file:
+       html_content = file.read()
+
+    resend.Emails.send({
+        "from": "grupo4PW@resend.dev",
+        "to": destinatario,
+        "subject": "Confirmación de cuenta",
+        "html": html_content
+    })
+    

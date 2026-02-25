@@ -106,6 +106,22 @@ async def cambiar_password_olvido(email: str, db: Session = Depends(get_db)):
         "msg": "Contraseña actualizada correctamente"
     }
 
+@router.post("/confirmar-inicio-sesion")
+async def confirmar_inicio_sesion(token: str, email: str, db: Session = Depends(get_db)):
+    usuario = db.query(User).filter(User.email == email).first()
+    
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    return {
+        "msg": "Inicio de sesión confirmado",
+        "email": email,
+        "token": token,
+        "redirect_url":"http://localhost:5173/usermain"
+
+        
+    }
+
 
 @router.get("/")
 def listar_usuarios(db: Session = Depends(get_db)):
