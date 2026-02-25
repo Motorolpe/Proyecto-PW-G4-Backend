@@ -6,18 +6,23 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from routers import usuario, egresos, categorias
+from routers import budgets
+from routers import admin
+
+
 
 from database import get_db
 from models import Access_log, User
 
-# Inicializar aplicación FastAPI
-app = FastAPI(
-    title="Proyecto PW G4 - Sistema de Gestión de Gastos",
-    description="API Backend para gestión de gastos y presupuestos",
-    version="1.0.0",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json",
+
+
+app = FastAPI()
+
+
+
+origins = (
+    "*"
 )
 
 # Configurar CORS para permitir solicitudes del frontend
@@ -28,6 +33,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(usuario.router)
+app.include_router(egresos.router)
+app.include_router(categorias.router)
 
 class LoginRequest(BaseModel):
     username: str
@@ -37,6 +45,9 @@ class LoginRequest(BaseModel):
 class LogoutRequest(BaseModel):
     token: str
 
+
+class LogoutRequest(BaseModel):
+    token: str
 
 @app.post("/login")
 async def login(login_request: LoginRequest, db: Session = Depends(get_db)):
@@ -65,56 +76,22 @@ async def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     return {
         "msg": "Login exitoso",
         "data": usuario,
-        "token": db_acceso.id,
+        "token": db_acceso.id
     }
 
-
 @app.delete("/logout")
-async def logout(logout_request: LogoutRequest, db: Session = Depends(get_db)):
-    db_accesos = db.query(Access_log).filter(Access_log.id == logout_request.token).first()
+async def logout(logout_request: LogoutRequest, db : Session = Depends(get_db)):
+    db_accesos = db.query(Access_log).filter(Access_log.id == logout_request.token).first() 
     if not db_accesos:
         return {
-            "msg": "Token no existe",
+            "msg" : "Token no existe"
         }
-
+    
     db.delete(db_accesos)
     db.commit()
     return {
-        "msg": "Logout exitoso",
+        "msg" : "Logout exitoso"
     }
 
-# ============== Health Check Routes ==============
-@app.get("/", tags=["Health"])
-async def root():
-    return {
-        "message": "API Proyecto PW G4 - Sistema de Gestión de Gastos",
-        "version": "1.0.0",
-        "status": "online",
-    }
-
-@app.get("/health", tags=["Health"])
-async def health_check():
-    return {"status": "healthy", "database": "connected"}
-
-# ============== Include Routers ==============
-from routers import usuario, egresos, budgets
-from routers import categorias
-from routers import auth
-
-# Legacy prefixes (repo original)
-app.include_router(usuario.router, prefix="/usuarios", tags=["Usuarios"])
-app.include_router(egresos.router, prefix="/egresos", tags=["Egresos"])
-app.include_router(categorias.router, prefix="/categorias", tags=["Categorías"])
 app.include_router(budgets.router)
-
-# Frontend/alias prefixes (mismas rutas, distinto path)
-app.include_router(usuario.router, prefix="/users", tags=["Users"])
-app.include_router(egresos.router, prefix="/expenses", tags=["Expenses"])
-app.include_router(categorias.router, prefix="/categories", tags=["Categories"])
-
-# Auth (JWT register/login)
-app.include_router(auth.router, prefix="/auth", tags=["Auth"])
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000, reload=True)
+app.include_router(admin.router)

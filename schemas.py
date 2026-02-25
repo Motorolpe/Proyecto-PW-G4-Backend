@@ -51,56 +51,31 @@ class CategoryResponse(CategoryBase):
     id: UUID
     created_at: Optional[datetime]
 
-    class Config:
-        from_attributes = True
 
-
-# ============== Expense Schemas ==============
-class ExpenseBase(BaseModel):
-    amount: float
-    description: Optional[str] = None
-    is_recurring: bool = False
-
-
-class ExpenseCreate(ExpenseBase):
-    user_id: UUID
-    category_id: UUID
-    expense_date: datetime
-
-
-class ExpenseUpdate(BaseModel):
-    amount: Optional[float] = None
-    description: Optional[str] = None
-    is_recurring: Optional[bool] = None
-    category_id: Optional[UUID] = None
-
-
-# Egreso payload usado en routers/egresos.py
 class EgresoType(BaseModel):
-    amount: float
-    expense_date: datetime
-    description: Optional[str] = None
-    is_recurring: bool = False
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    user_id: Optional[UUID] = None
-    category_id: UUID
+    id: str | None = None
+    amount : float
+    expense_date : str
+    description : str | None = None
+    is_recurring : bool | None = False
+    created_at : str | None = None
+    updated_at : str | None = None
+    user_id : str
+    category_id : str
+    class Config:
+        from_attributes = True
 
-
-class ExpenseResponse(ExpenseBase):
-    id: UUID
-    user_id: UUID
-    category_id: UUID
-    expense_date: datetime
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+class UserListSchema(BaseModel):
+    id: str
+    full_name: str
+    email: str
+    role: str
+    is_active: bool
 
     class Config:
         from_attributes = True
 
-
-# ============== Budget Schemas ==============
-class BudgetBase(BaseModel):
+class BudgetCreate(BaseModel):
     amount_limit: float
     month: str
     year: str
@@ -202,3 +177,11 @@ class ExpenseFilters(BaseModel):
     date_to: Optional[datetime] = None
     amount_min: Optional[float] = None
     amount_max: Optional[float] = None
+    category_id: UUID
+
+class EgresoUpdate(BaseModel):
+    amount: float
+    expense_date: str
+    description: str | None = None
+    is_recurring: bool | None = False
+    category_id: UUID

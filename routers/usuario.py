@@ -1,38 +1,36 @@
 from datetime import datetime, timedelta
 import uuid
-from uuid import UUID
+from pydantic import BaseModel
+import string
+import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func
+from sqlalchemy import UUID, func
 from sqlalchemy.orm import Session
 
-import models
+from models import User
 import schemas
 from database import get_db
 from security import verify_token
-from models import User
+from enviarCorreo.email import enviar_correo_recuperacion, enviar_correo_contraseña
 
-# Sin prefix: main.py lo registra con /usuarios y /users
-router = APIRouter()
+from schemas import UserListSchema
+from typing import List
 
+router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
-def _current_user(token: str, db: Session) -> models.User:
-    access = db.query(models.Access_log).filter(models.Access_log.id == token).first()
-    if not access:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
-    user = db.query(models.User).filter(models.User.id == access.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    return user
+class RecuperacionCuenta(BaseModel):
+    email: str
 
 @router.post("/solicitar-recuperacion")
-async def solicitar_recuperacion(email: str, db: Session = Depends(get_db)):
-    usuario = db.query(User).filter(User.email == email).first()
+async def solicitar_recuperacion(request: RecuperacionCuenta, db: Session = Depends(get_db)):
+    usuario = db.query(User).filter(User.email == request.email).first()
 
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
     token = str(uuid.uuid4())
+    enviar_correo_recuperacion(usuario.email, token)
 
     usuario.recovery_token = token
     usuario.recovery_token_expires = datetime.utcnow() + timedelta(minutes=15)
@@ -44,20 +42,26 @@ async def solicitar_recuperacion(email: str, db: Session = Depends(get_db)):
         "recovery_token": token 
     }
 
+class CambiarPasswordRequest(BaseModel):
+    token: str
+    nueva_password: str
+
+class CambiarPasswordAutorizadoRequest(BaseModel):
+    email: str
+    old_password: str
+    new_password: str
+
 @router.put("/cambiar-password")
-async def cambiar_password(email: str, token: str, nueva_password: str, db: Session = Depends(get_db)):
-    usuario = db.query(User).filter(User.email == email).first()
+async def cambiar_password(data: CambiarPasswordRequest, db: Session = Depends(get_db)):
+    usuario = db.query(User).filter(User.recovery_token == data.token).first()
 
     if not usuario:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-
-    if usuario.recovery_token != token:
-        raise HTTPException(status_code=400, detail="Token inválido")
+        raise HTTPException(status_code=404, detail="Token inválido")
 
     if usuario.recovery_token_expires < datetime.utcnow():
-        raise HTTPException(status_code=400, detail="Token expirado")
+        raise HTTPException(status_code=400, detail="Tiempo expirado")
 
-    usuario.password_hash = nueva_password
+    usuario.password_hash = data.nueva_password
 
     usuario.recovery_token = None
     usuario.recovery_token_expires = None
@@ -72,7 +76,7 @@ async def cambiar_password(email: str, token: str, nueva_password: str, db: Sess
 
 @router.get("/me", response_model=schemas.UserResponse)
 async def obtener_usuario_actual(token: str = Depends(verify_token), db: Session = Depends(get_db)):
-    return _current_user(token, db)
+    return
 
 
 @router.put("/me", response_model=schemas.UserResponse)
@@ -81,7 +85,7 @@ async def actualizar_usuario_actual(
     token: str = Depends(verify_token),
     db: Session = Depends(get_db),
 ):
-    user = _current_user(token, db)
+    user =
     try:
         if user_update.full_name:
             user.full_name = user_update.full_name
@@ -104,23 +108,23 @@ async def actualizar_usuario_actual(
 
 @router.get("/stats/summary", response_model=schemas.UserStatsSummary)
 async def usuarios_stats(db: Session = Depends(get_db), token: str = Depends(verify_token)):
-    _current_user(token, db)
-    total_users = db.query(func.count(models.User.id)).scalar() or 0
+
+    total_users = db.query(func.count(User.id)).scalar() or 0
 
     now = datetime.utcnow()
     new_users_this_month = (
-        db.query(func.count(models.User.id))
-        .filter(func.extract("year", models.User.created_at) == now.year)
-        .filter(func.extract("month", models.User.created_at) == now.month)
+        db.query(func.count(User.id))
+        .filter(func.extract("year", User.created_at) == now.year)
+        .filter(func.extract("month", User.created_at) == now.month)
         .scalar()
         or 0
     )
 
     users_by_month_rows = (
         db.query(
-            func.extract("year", models.User.created_at).label("year"),
-            func.extract("month", models.User.created_at).label("month"),
-            func.count(models.User.id).label("count"),
+            func.extract("year", User.created_at).label("year"),
+            func.extract("month", User.created_at).label("month"),
+            func.count(User.id).label("count"),
         )
         .group_by("year", "month")
         .order_by("year", "month")
@@ -142,14 +146,14 @@ async def usuarios_stats(db: Session = Depends(get_db), token: str = Depends(ver
 
 @router.get("", response_model=list[schemas.UserResponse])
 async def listar_usuarios(skip: int = 0, limit: int = 10, db: Session = Depends(get_db), token: str = Depends(verify_token)):
-    _current_user(token, db)
-    return db.query(models.User).offset(skip).limit(limit).all()
+
+    return db.query(User).offset(skip).limit(limit).all()
 
 
 @router.get("/{user_id}", response_model=schemas.UserResponse)
 async def obtener_usuario(user_id: UUID, db: Session = Depends(get_db), token: str = Depends(verify_token)):
-    _current_user(token, db)
-    user = db.query(models.User).filter(models.User.id == user_id).first()
+
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return user
@@ -161,7 +165,7 @@ async def eliminar_usuario(
     token: str = Depends(verify_token),
     db: Session = Depends(get_db),
 ):
-    user = _current_user(token, db)
+    user =
     if user.id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -183,3 +187,54 @@ async def eliminar_usuario(
         )
 
     return None
+@router.put("/cambiar-password-autorizado", dependencies=[Depends(verify_token)])
+async def cambiar_password_autorizado(request: CambiarPasswordAutorizadoRequest, db: Session = Depends(get_db)):
+    usuario = db.query(User).filter(
+        User.email == request.email,
+        User.password_hash == request.old_password
+        ).first()
+    
+    if not usuario:
+        raise HTTPException(status_code=400, detail="Credenciales inválidas")
+    
+    usuario.password_hash = request.new_password
+    usuario.updated_at = datetime.utcnow()
+    db.commit()
+
+    return {
+        "msg": "Contraseña actualizada correctamente"
+    }
+
+@router.put("/cambiar-password-autorizado/{email}", dependencies=[Depends(verify_token)])
+async def cambiar_password_olvido(email: str, db: Session = Depends(get_db)):
+    usuario = db.query(User).filter(User.email == email).first()
+
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    random_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(10))
+    enviar_correo_contraseña(usuario.email, random_password)
+
+    usuario.password_hash = random_password
+    usuario.updated_at = datetime.utcnow()
+    db.commit()
+
+    return {
+        "msg": "Contraseña actualizada correctamente"
+    }
+
+
+@router.get("/")
+def listar_usuarios(db: Session = Depends(get_db)):
+    usuarios = db.query(User).all()
+    return [
+        {
+            "id": u.id,
+            "full_name": u.full_name,
+            "email": u.email,
+            "role": u.role,
+            "is_active": u.is_active,
+            "created_at": u.created_at
+        }
+        for u in usuarios
+    ]
