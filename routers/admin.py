@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import User, Access_log
 from uuid import UUID
+from models import Access_log, Alert, Expense, Budget
 
 
 
@@ -88,7 +89,14 @@ def eliminar_usuario(
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
+    # 🔥 Borrar primero los registros relacionados
+    db.query(Access_log).filter(Access_log.user_id == user.id).delete()
+    db.query(Alert).filter(Alert.user_id == user.id).delete()
+    db.query(Expense).filter(Expense.user_id == user.id).delete()
+    db.query(Budget).filter(Budget.user_id == user.id).delete()
+
+    # 🔥 Ahora sí borrar usuario
     db.delete(user)
     db.commit()
 
-    return {"msg": "Usuario eliminado"}
+    return {"msg": "Usuario eliminado correctamente"}
