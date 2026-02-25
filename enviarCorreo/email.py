@@ -49,6 +49,11 @@ def enviar_correo_confirmacion(destinatario: str):
     with open("templates/iniciosesion.html", "r", encoding="utf-8") as file:
        html_content = file.read()
 
+    html_content = html_content.replace(
+        "{{ link }}",
+        frontend_url
+    )
+
     resend.Emails.send({
         "from": "grupo4PW@resend.dev",
         "to": destinatario,

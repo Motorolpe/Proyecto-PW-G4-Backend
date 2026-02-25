@@ -9,7 +9,7 @@ import secrets
 from database import get_db
 from models import User
 from security import verify_token
-from enviarCorreo.email import enviar_correo_recuperacion, enviar_correo_contraseña
+from enviarCorreo.email import enviar_correo_confirmacion, enviar_correo_recuperacion, enviar_correo_contraseña
 
 from schemas import UserListSchema
 from typing import List
@@ -107,17 +107,18 @@ async def cambiar_password_olvido(email: str, db: Session = Depends(get_db)):
     }
 
 @router.post("/confirmar-inicio-sesion")
-async def confirmar_inicio_sesion(token: str, email: str, db: Session = Depends(get_db)):
+async def confirmar_inicio_sesion(email: str, db: Session = Depends(get_db)):
     usuario = db.query(User).filter(User.email == email).first()
     
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     
+    enviar_correo_confirmacion(usuario.email)
+
     return {
         "msg": "Inicio de sesión confirmado",
-        "email": email,
-        "token": token,
-        "redirect_url":"http://localhost:5173/usermain"
+        "email": usuario.email,
+        "redirect_url":"http://localhost:5173/"
 
         
     }
