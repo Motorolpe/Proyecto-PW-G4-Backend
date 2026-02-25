@@ -30,3 +30,10 @@ class BudgetCreate(BaseModel):
     year: str
     alert_treshold: float
     category_id: UUID
+
+class EgresoUpdate(BaseModel):
+    amount: float
+    expense_date: str
+    description: str | None = None
+    is_recurring: bool | None = False
+    category_id: UUID

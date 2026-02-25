@@ -6,7 +6,7 @@ from uuid import UUID
 
 from database import get_db
 from models import Category, Expense
-from schemas import EgresoType
+from schemas import EgresoType, EgresoUpdate
 from security import verify_token
 
 router = APIRouter(prefix="/egresos", tags=["Egresos"])
@@ -158,21 +158,21 @@ def obtener_gastos_atipicos(user_id: str, db: Session = Depends(get_db)):
       "data": resultado
     }
 
+
 @router.put("/editar/{egreso_id}", dependencies=[Depends(verify_token)])
-async def editar_egreso(egreso_id: UUID, egreso: EgresoType, db: Session = Depends(get_db)):
+async def editar_egreso(egreso_id: UUID, egreso: EgresoUpdate, db: Session = Depends(get_db)):
     egreso_db = db.query(Expense).filter(Expense.id == egreso_id).first()
 
     if not egreso_db:
-        return {
-            "msg": "Egreso no encontrado"
-        }
+        return {"msg": "Egreso no encontrado"}
 
     egreso_db.amount = egreso.amount
+
     egreso_db.expense_date = egreso.expense_date
     egreso_db.description = egreso.description
     egreso_db.is_recurring = egreso.is_recurring
-    egreso_db.updated_at = egreso.updated_at
     egreso_db.category_id = egreso.category_id
+    egreso_db.updated_at = datetime.utcnow()
 
     db.commit()
     db.refresh(egreso_db)
