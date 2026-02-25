@@ -36,4 +36,4 @@ class EgresoUpdate(BaseModel):
     expense_date: str
     description: str | None = None
     is_recurring: bool | None = False
-    category_id: UUID
+    category_name: str

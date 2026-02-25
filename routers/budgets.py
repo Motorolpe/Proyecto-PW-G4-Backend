@@ -4,7 +4,7 @@ from uuid import uuid4
 import datetime
 
 from database import get_db
-from models import Budget, Access_log
+from models import Budget, Access_log, Category
 from schemas import BudgetCreate
 
 router = APIRouter(prefix="/budgets", tags=["Budgets"])
@@ -15,7 +15,7 @@ def create_budget(
     token: str = Header(...),
     db: Session = Depends(get_db)
 ):
-    
+
     # 🔐 Validar token
     access = db.query(Access_log).filter(
         Access_log.id == token
@@ -26,10 +26,21 @@ def create_budget(
 
     user_id = access.user_id
 
-    # 🚨 Verificar si ya existe presupuesto para ese mes/año/categoría
+    # 🔎 Buscar categoría por nombre
+    category = db.query(Category).filter(
+        Category.name == budget.category_name
+    ).first()
+
+    if not category:
+        raise HTTPException(
+            status_code=404,
+            detail="La categoría no existe"
+        )
+
+    # 🚨 Verificar si ya existe presupuesto
     existing_budget = db.query(Budget).filter(
         Budget.user_id == user_id,
-        Budget.category_id == budget.category_id,
+        Budget.category_id == category.id,
         Budget.month == budget.month,
         Budget.year == budget.year
     ).first()
@@ -49,7 +60,7 @@ def create_budget(
         alert_treshold=budget.alert_treshold,
         created_at=datetime.datetime.now(),
         user_id=user_id,
-        category_id=budget.category_id
+        category_id=category.id   # 👈 usamos el ID real
     )
 
     db.add(new_budget)
