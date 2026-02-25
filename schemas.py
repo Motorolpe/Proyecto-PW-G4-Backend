@@ -27,7 +27,7 @@ class UserListSchema(BaseModel):
 class BudgetCreate(BaseModel):
     amount_limit: float
     month: str
-    year: int
+    year: str
     alert_treshold: float
     category_name:str
 
