@@ -11,7 +11,7 @@ frontend_url = os.getenv("FRONTEND_URL")
 resend.api_key = api_key
 
 def enviar_correo_recuperacion(destinatario: str, token: str):
-    link = f"{frontend_url}cambiar-contra?token={token}"
+    link = f"{frontend_url}#/cambiar-contra?token={token}"
 
     with open("templates/recuperacion.html", "r", encoding="utf-8") as file:
         html_content = file.read()
