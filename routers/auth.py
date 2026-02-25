@@ -1,10 +1,11 @@
 import os
+import time
 from datetime import datetime, timedelta
 
 import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import models
@@ -13,11 +14,6 @@ from database import get_db
 
 router = APIRouter()
 security = HTTPBearer()
-
-# Configuración JWT
-SECRET_KEY = os.getenv("SECRET_KEY", "tu-clave-secreta-aqui-cambiar-en-produccion")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 
 def hash_password(password: str) -> str:
@@ -30,14 +26,6 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verificar contraseña con bcrypt."""
     return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
-
-
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
-    """Crear token JWT."""
-    to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
 @router.post("/register", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
@@ -57,6 +45,13 @@ async def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
                 detail="El email ya está registrado",
             )
 
+        db_fullname = db.query(models.User).filter(models.User.full_name == user.full_name).first()
+        if db_fullname:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El nombre ya está registrado",
+            )
+
         new_user = models.User(
             full_name=user.full_name,
             email=user.email,
@@ -74,6 +69,12 @@ async def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         return new_user
     except HTTPException:
         raise
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Ya existe un usuario con ese email o nombre",
+        )
     except Exception as e:
         db.rollback()
         if isinstance(e, ValueError):
@@ -86,7 +87,7 @@ async def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=schemas.TokenResponse)
 async def login(credentials: schemas.LoginRequest, db: Session = Depends(get_db)):
-    """Iniciar sesión."""
+    """Iniciar sesión — crea Access_log y devuelve token compatible."""
     try:
         db_user = db.query(models.User).filter(models.User.email == credentials.email).first()
         if not db_user or not verify_password(credentials.password, db_user.password_hash):
@@ -96,8 +97,21 @@ async def login(credentials: schemas.LoginRequest, db: Session = Depends(get_db)
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        access_token = create_access_token(data={"sub": db_user.email})
-        return {"access_token": access_token, "token_type": "bearer"}
+        # Crear token Access_log (mismo mecanismo que /login legacy)
+        hora_actual = time.time_ns()
+        cadena = f"{credentials.email}-{hora_actual}"
+        token_hash = bcrypt.hashpw(cadena.encode("utf-8"), bcrypt.gensalt())
+
+        db_acceso = models.Access_log(
+            id=token_hash.decode("utf-8"),
+            last_login=datetime.utcnow(),
+            user_id=db_user.id,
+        )
+        db.add(db_acceso)
+        db.commit()
+        db.refresh(db_acceso)
+
+        return {"access_token": db_acceso.id, "token_type": "bearer"}
     except HTTPException:
         raise
     except Exception as e:
@@ -105,24 +119,3 @@ async def login(credentials: schemas.LoginRequest, db: Session = Depends(get_db)
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al iniciar sesión: {str(e)}",
         )
-
-
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db),
-) -> models.User:
-    """Obtener usuario actual desde el token JWT."""
-    token = credentials.credentials
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str | None = payload.get("sub")
-        if email is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido o expirado")
-
-    user = db.query(models.User).filter(models.User.email == email).first()
-    if user is None:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-
-    return user

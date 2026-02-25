@@ -1,26 +1,42 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, extract
+from datetime import datetime
 from uuid import UUID
 
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import extract, func
+from sqlalchemy.orm import Session, joinedload
+
+import models
 from database import get_db
-from models import Category, Expense
 from schemas import EgresoType
 from security import verify_token
 
-router = APIRouter(prefix="/egresos", tags=["Egresos"])
+# Sin prefix: main.py lo registra con /egresos y /expenses
+router = APIRouter()
+
+
+def _require_user_id(token: str, db: Session) -> UUID:
+    access = db.query(models.Access_log).filter(models.Access_log.id == token).first()
+    if not access:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+    return access.user_id
 
 @router.post("/crear", dependencies=[Depends(verify_token)])
-async def crear_egreso(egreso: EgresoType, db: Session = Depends(get_db)):
-    nuevo_egreso = Expense(
-        amount = egreso.amount,
-        expense_date = egreso.expense_date,
-        description = egreso.description,
-        is_recurring = egreso.is_recurring,
-        created_at = egreso.created_at,
-        updated_at = egreso.updated_at,
-        user_id = egreso.user_id,
-        category_id = egreso.category_id
+@router.post("/", dependencies=[Depends(verify_token)])
+async def crear_egreso(egreso: EgresoType, db: Session = Depends(get_db), token: str = Depends(verify_token)):
+    user_id = _require_user_id(token, db)
+    # Permitir que el body traiga user_id pero validar que coincida
+    if egreso.user_id and str(egreso.user_id) != str(user_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No puedes crear gastos para otros usuarios")
+
+    nuevo_egreso = models.Expense(
+        amount=egreso.amount,
+        expense_date=egreso.expense_date,
+        description=egreso.description,
+        is_recurring=egreso.is_recurring,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        user_id=user_id,
+        category_id=egreso.category_id,
     )
 
     db.add(nuevo_egreso)
@@ -29,17 +45,71 @@ async def crear_egreso(egreso: EgresoType, db: Session = Depends(get_db)):
 
     return {
         "msg": "Egreso creado correctamente",
-        "data": nuevo_egreso
+        "data": nuevo_egreso,
     }
 
-@router.get("/usuario/{usuario_id}", dependencies=[Depends(verify_token)])
-async def listar_egresos(usuario_id: UUID, db: Session = Depends(get_db)):
 
-    resultados_db = db.query(Expense, Category).join(Category, Expense.category_id == Category.id
+@router.put("/editar/{egreso_id}", dependencies=[Depends(verify_token)])
+async def editar_egreso(egreso_id: UUID, egreso: EgresoType, db: Session = Depends(get_db), token: str = Depends(verify_token)):
+    user_id = _require_user_id(token, db)
+    egreso_db = db.query(models.Expense).filter(models.Expense.id == egreso_id).first()
+    if not egreso_db:
+        return {"msg": "Egreso no encontrado"}
+
+    if egreso_db.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes permiso para editar este gasto")
+
+    egreso_db.amount = egreso.amount
+    egreso_db.expense_date = egreso.expense_date
+    egreso_db.description = egreso.description
+    egreso_db.is_recurring = egreso.is_recurring
+    egreso_db.updated_at = datetime.utcnow()
+    egreso_db.category_id = egreso.category_id
+
+    db.commit()
+    db.refresh(egreso_db)
+
+    return {"msg": "Egreso editado correctamente", "data": egreso_db}
+
+@router.get("/", dependencies=[Depends(verify_token)])
+async def listar_egresos(
+    skip: int = 0,
+    limit: int = 50,
+    category_id: UUID | None = Query(None),
+    date_from: datetime | None = Query(None),
+    date_to: datetime | None = Query(None),
+    amount_min: float | None = Query(None),
+    amount_max: float | None = Query(None),
+    db: Session = Depends(get_db),
+    token: str = Depends(verify_token),
+):
+    """Listado con filtros opcionales (equiv. expenses)."""
+    user_id = _require_user_id(token, db)
+
+    query = db.query(models.Expense).filter(models.Expense.user_id == user_id)
+    if category_id:
+        query = query.filter(models.Expense.category_id == category_id)
+    if date_from:
+        query = query.filter(models.Expense.expense_date >= date_from)
+    if date_to:
+        query = query.filter(models.Expense.expense_date <= date_to)
+    if amount_min is not None:
+        query = query.filter(models.Expense.amount >= amount_min)
+    if amount_max is not None:
+        query = query.filter(models.Expense.amount <= amount_max)
+
+    expenses = query.order_by(models.Expense.expense_date.desc()).offset(skip).limit(limit).all()
+    return expenses
+
+
+@router.get("/usuario/{usuario_id}", dependencies=[Depends(verify_token)])
+async def listar_egresos_por_usuario(usuario_id: UUID, db: Session = Depends(get_db)):
+
+    resultados_db = db.query(models.Expense, models.Category).join(models.Category, models.Expense.category_id == models.Category.id
     ).filter(
-        Expense.user_id == usuario_id
+        models.Expense.user_id == usuario_id
     ).order_by(
-        Expense.expense_date.desc()
+        models.Expense.expense_date.desc()
     ).all()
 
     lista = []
@@ -160,3 +230,29 @@ def obtener_gastos_atipicos(user_id: str, db: Session = Depends(get_db)):
     return {
         "data": resultado
     }
+
+
+# ===== Extra endpoints equivalentes a expenses =====
+
+@router.get("/{expense_id}", response_model=None, dependencies=[Depends(verify_token)])
+async def obtener_egreso(expense_id: UUID, db: Session = Depends(get_db), token: str = Depends(verify_token)):
+    user_id = _require_user_id(token, db)
+    expense = db.query(models.Expense).filter(models.Expense.id == expense_id).first()
+    if not expense:
+        raise HTTPException(status_code=404, detail="Gasto no encontrado")
+    if expense.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes permiso para ver este gasto")
+    return expense
+
+
+@router.delete("/{expense_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_token)])
+async def eliminar_egreso(expense_id: UUID, db: Session = Depends(get_db), token: str = Depends(verify_token)):
+    user_id = _require_user_id(token, db)
+    expense = db.query(models.Expense).filter(models.Expense.id == expense_id).first()
+    if not expense:
+        raise HTTPException(status_code=404, detail="Gasto no encontrado")
+    if expense.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes permiso para eliminar este gasto")
+    db.delete(expense)
+    db.commit()
+    return None

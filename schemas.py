@@ -83,7 +83,7 @@ class EgresoType(BaseModel):
     is_recurring: bool = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    user_id: UUID
+    user_id: Optional[UUID] = None
     category_id: UUID
 
 

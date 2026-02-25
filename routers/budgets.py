@@ -7,22 +7,27 @@ from sqlalchemy.orm import Session
 import models
 import schemas
 from database import get_db
-from routers.auth import get_current_user
+from security import verify_token
 
-router = APIRouter()
+router = APIRouter(prefix="/budgets", tags=["Budgets"])
 
 
 @router.get("", response_model=list[schemas.BudgetResponse])
 async def list_budgets(
-    current_user: models.User = Depends(get_current_user),
     skip: int = 0,
     limit: int = 10,
     month: str | None = Query(None),
     year: str | None = Query(None),
     db: Session = Depends(get_db),
+    token: str = Depends(verify_token),
 ):
-    """Listar presupuestos del usuario actual"""
-    query = db.query(models.Budget).filter(models.Budget.user_id == current_user.id)
+    """Listar presupuestos del usuario actual (token header)"""
+    access = db.query(models.Access_log).filter(models.Access_log.id == token).first()
+    if not access:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+    user_id = access.user_id
+
+    query = db.query(models.Budget).filter(models.Budget.user_id == user_id)
     if month:
         query = query.filter(models.Budget.month == month)
     if year:
@@ -35,11 +40,16 @@ async def list_budgets(
 @router.post("", response_model=schemas.BudgetResponse, status_code=status.HTTP_201_CREATED)
 async def create_budget(
     budget: schemas.BudgetCreate,
-    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    token: str = Depends(verify_token),
 ):
-    """Crear nuevo presupuesto"""
-    if budget.user_id != current_user.id:
+    """Crear nuevo presupuesto (token header)"""
+    access = db.query(models.Access_log).filter(models.Access_log.id == token).first()
+    if not access:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+    user_id = access.user_id
+
+    if budget.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No puedes crear presupuestos para otros usuarios",
@@ -54,7 +64,7 @@ async def create_budget(
         month=budget.month,
         year=budget.year,
         alert_treshold=budget.alert_treshold,
-        user_id=budget.user_id,
+        user_id=user_id,
         category_id=budget.category_id,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
@@ -69,21 +79,23 @@ async def create_budget(
 @router.get("/{budget_id}", response_model=schemas.BudgetResponse)
 async def get_budget(
     budget_id: UUID,
-    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    token: str = Depends(verify_token),
 ):
-    """Obtener presupuesto por ID"""
-    budget = db.query(models.Budget).filter(models.Budget.id == budget_id).first()
+    """Obtener presupuesto por ID (token header)"""
+    access = db.query(models.Access_log).filter(models.Access_log.id == token).first()
+    if not access:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+    user_id = access.user_id
 
+    budget = db.query(models.Budget).filter(models.Budget.id == budget_id).first()
     if not budget:
         raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
-
-    if budget.user_id != current_user.id:
+    if budget.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes permiso para ver este presupuesto",
         )
-
     return budget
 
 
@@ -91,16 +103,19 @@ async def get_budget(
 async def update_budget(
     budget_id: UUID,
     budget_update: schemas.BudgetUpdate,
-    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    token: str = Depends(verify_token),
 ):
-    """Actualizar presupuesto"""
-    budget = db.query(models.Budget).filter(models.Budget.id == budget_id).first()
+    """Actualizar presupuesto (token header)"""
+    access = db.query(models.Access_log).filter(models.Access_log.id == token).first()
+    if not access:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+    user_id = access.user_id
 
+    budget = db.query(models.Budget).filter(models.Budget.id == budget_id).first()
     if not budget:
         raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
-
-    if budget.user_id != current_user.id:
+    if budget.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes permiso para actualizar este presupuesto",
@@ -126,16 +141,19 @@ async def update_budget(
 @router.delete("/{budget_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_budget(
     budget_id: UUID,
-    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    token: str = Depends(verify_token),
 ):
-    """Eliminar presupuesto"""
-    budget = db.query(models.Budget).filter(models.Budget.id == budget_id).first()
+    """Eliminar presupuesto (token header)"""
+    access = db.query(models.Access_log).filter(models.Access_log.id == token).first()
+    if not access:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+    user_id = access.user_id
 
+    budget = db.query(models.Budget).filter(models.Budget.id == budget_id).first()
     if not budget:
         raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
-
-    if budget.user_id != current_user.id:
+    if budget.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes permiso para eliminar este presupuesto",

@@ -33,15 +33,8 @@ class User(Base):
 
 class Access_log(Base):
     __tablename__ = "access_log"
-    id = Column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        default=lambda: str(uuid.uuid4()),
-        index=True,
-    )
-    action_type = Column(String)
-    status = Column(String)
-    timestamp = Column(DateTime)
+    id = Column(String, primary_key=True, index=True)
+    last_login = Column(DateTime)
 
     user_id = Column(
         UUID(as_uuid=True),
